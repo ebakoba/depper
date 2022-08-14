@@ -1,3 +1,3 @@
 ## Depper
 
-Library for validating dependency graphs: detecting cycles, s. It also allows to sort dependecies into tranches, which can be used as deployment lists.
+Library for detecting dependency cycles and finding missing dependencies. It also allows to sort dependencies into tranches, which can be used as a hierarchy dependency resolution.
