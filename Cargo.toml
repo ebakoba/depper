@@ -1,10 +1,19 @@
 [package]
 name = "depper"
+description = "Library for basic dependency validation"
+repository = "https://github.com/ebakoba/depper"
+documentation = "https://docs.rs/depper"
+readme = "README.md"
 version = "0.1.0"
+authors = ["Kaarel Allemann <kaarelallemann@gmail.com>"]
 edition = "2021"
 license = "MIT"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+include = [
+    "**/*.rs",
+    "Cargo.toml",
+]
+keywords = ["dependencies", "graphs", "validation"]
+categories = ["algorithms"]
 
 [dependencies]
 anyhow = "1"
