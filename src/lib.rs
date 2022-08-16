@@ -23,12 +23,12 @@
 //!   use depper::Dependencies;
 //!
 //!   let mut dependencies_builder = Dependencies::builder()
-//!     .add_element("b", &["d"])
-//!     .add_element("c", &["d"])
-//!     .add_element("a", &["d", "e", "y"])
-//!     .add_element("d", &["e"])
-//!     .add_element("e", &[])
-//!     .add_element("y", &[]);
+//!     .add_element("b".to_string(), vec!["d".to_string()])
+//!     .add_element("c".to_string(), vec!["d".to_string()])
+//!     .add_element("a".to_string(), vec!["d".to_string(), "e".to_string(), "y".to_string()])
+//!     .add_element("d".to_string(), vec!["e".to_string()])
+//!     .add_element("e".to_string(), vec![])
+//!     .add_element("y".to_string(), vec![]);
 //!     
 //!   // Calling the `.build()` function validates the list of dependencies.
 //!   let dependencies = dependencies_builder.build().unwrap();
@@ -51,22 +51,22 @@ use petgraph::{
 };
 use std::collections::{HashMap, HashSet};
 
-pub struct DependenciesBuilder<'a> {
-    all_elements: Vec<&'a str>,
-    all_dependencies: Vec<&'a str>,
-    graph: DiGraph<&'a str, ()>,
-    dependency_map: HashMap<&'a str, (NodeIndex, &'a [&'a str])>,
+pub struct DependenciesBuilder {
+    all_elements: Vec<String>,
+    all_dependencies: Vec<String>,
+    graph: DiGraph<String, ()>,
+    dependency_map: HashMap<String, (NodeIndex, Vec<String>)>,
 }
 
-impl<'a> DependenciesBuilder<'a> {
-    pub fn add_element(mut self, name: &'a str, dependecies: &'a [&str]) -> Self {
-        self.all_dependencies.extend(dependecies);
+impl DependenciesBuilder {
+    pub fn add_element(mut self, name: String, dependecies: Vec<String>) -> Self {
+        self.all_dependencies.extend(dependecies.clone());
         
-        if let Some((graph_node, _)) = self.dependency_map.get(name)  {
+        if let Some((graph_node, _)) = self.dependency_map.get(&name)  {
             self.dependency_map.insert(name, (graph_node.to_owned(), dependecies));
         } else {
-            self.all_elements.push(name);
-            let node = self.graph.add_node(name);
+            self.all_elements.push(name.clone());
+            let node = self.graph.add_node(name.clone());
             self.dependency_map.insert(name, (node, dependecies));
         }
         self
@@ -74,7 +74,7 @@ impl<'a> DependenciesBuilder<'a> {
 
     fn add_edges(&mut self) {
         for (node, dependencies) in self.dependency_map.values() {
-            for dependency in *dependencies {
+            for dependency in dependencies {
                 let dependency_node = self.dependency_map[dependency].0;
                 self.graph.add_edge(*node, dependency_node, ());
             }
@@ -117,11 +117,11 @@ impl<'a> DependenciesBuilder<'a> {
 }
 
 #[derive(Debug)]
-pub struct Dependencies<'a> {
-    graph: DiGraph<&'a str, ()>,
+pub struct Dependencies {
+    graph: DiGraph<String, ()>,
 }
 
-impl<'a> Dependencies<'a> {
+impl Dependencies {
     pub fn generate_tranches(&self) -> Result<Vec<Vec<String>>> {
         let mut tranches: Vec<Vec<String>> = vec![];
         let mut traverse_graph = self.graph.clone();
@@ -148,7 +148,7 @@ impl<'a> Dependencies<'a> {
         Ok(tranches)
     }
 
-    pub fn builder() -> DependenciesBuilder<'a> {
+    pub fn builder() -> DependenciesBuilder {
         DependenciesBuilder {
             all_elements: Vec::new(),
             all_dependencies: Vec::new(),
@@ -165,9 +165,9 @@ mod tests {
     #[test]
     fn can_validate_simple_tree() {
         let mut dependencies_builder = Dependencies::builder()
-            .add_element("a", &["b", "c"])
-            .add_element("b", &["c"])
-            .add_element("c", &[]);
+            .add_element("a".to_string(), vec!["b".to_string(), "c".to_string()])
+            .add_element("b".to_string(), vec!["c".to_string()])
+            .add_element("c".to_string(), vec![]);
 
         assert!(dependencies_builder.build().is_ok());
     }
@@ -175,11 +175,11 @@ mod tests {
     #[test]
     fn can_validate_complex_tree() {
         let mut dependencies_builder = Dependencies::builder()
-            .add_element("a", &["b", "c"])
-            .add_element("b", &["c"])
-            .add_element("c", &["d", "e"])
-            .add_element("d", &["e"])
-            .add_element("e", &[]);
+            .add_element("a".to_string(), vec!["b".to_string(), "c".to_string()])
+            .add_element("b".to_string(), vec!["c".to_string()])
+            .add_element("c".to_string(), vec!["d".to_string(), "e".to_string()])
+            .add_element("d".to_string(), vec!["e".to_string()])
+            .add_element("e".to_string(), vec![]);
 
         assert!(dependencies_builder.build().is_ok());
     }
@@ -187,8 +187,8 @@ mod tests {
     #[test]
     fn detects_missing_dependencies() {
         let mut dependencies_builder = Dependencies::builder()
-            .add_element("a", &["b", "c"])
-            .add_element("b", &["c"]);
+            .add_element("a".to_string(), vec!["b".to_string(), "c".to_string()])
+            .add_element("b".to_string(), vec!["c".to_string()]);
 
         assert_eq!(
             dependencies_builder.build().unwrap_err().to_string(),
@@ -199,9 +199,9 @@ mod tests {
     #[test]
     fn detects_cyclic_dependencies() {
         let mut dependencies_builder = Dependencies::builder()
-            .add_element("a", &["b", "c"])
-            .add_element("b", &["c"])
-            .add_element("c", &["a", "b"]);
+            .add_element("a".to_string(), vec!["b".to_string(), "c".to_string()])
+            .add_element("b".to_string(), vec!["c".to_string()])
+            .add_element("c".to_string(), vec!["a".to_string(), "b".to_string()]);
 
         assert_eq!(
             dependencies_builder.build().unwrap_err().to_string(),
@@ -212,12 +212,12 @@ mod tests {
     #[test]
     fn can_divide_into_tranches() {
         let mut dependencies_builder = Dependencies::builder()
-            .add_element("b", &["d"])
-            .add_element("c", &["d"])
-            .add_element("a", &["d", "e", "y"])
-            .add_element("d", &["e"])
-            .add_element("e", &[])
-            .add_element("y", &[]);
+            .add_element("b".to_string(), vec!["d".to_string()])
+            .add_element("c".to_string(), vec!["d".to_string()])
+            .add_element("a".to_string(), vec!["d".to_string(), "e".to_string(), "y".to_string()])
+            .add_element("d".to_string(), vec!["e".to_string()])
+            .add_element("e".to_string(), vec![])
+            .add_element("y".to_string(), vec![]);
 
         let dependencies = dependencies_builder.build().unwrap();
 
@@ -227,13 +227,13 @@ mod tests {
     #[test]
     fn can_update_dependecies_later() {
         let mut dependencies_builder = Dependencies::builder()
-            .add_element("b", &["d"])
-            .add_element("c", &["d"])
-            .add_element("a", &["d", "e", "y"])
-            .add_element("d", &["e"])
-            .add_element("e", &[])
-            .add_element("y", &[])
-            .add_element("e", &["y"]);
+            .add_element("b".to_string(), vec!["d".to_string()])
+            .add_element("c".to_string(), vec!["d".to_string()])
+            .add_element("a".to_string(), vec!["d".to_string(), "e".to_string(), "y".to_string()])
+            .add_element("d".to_string(), vec!["e".to_string()])
+            .add_element("e".to_string(), vec![])
+            .add_element("y".to_string(), vec![])
+            .add_element("e".to_string(), vec!["y".to_string()]);
 
         let dependencies = dependencies_builder.build().unwrap();
 
