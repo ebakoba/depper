@@ -17,4 +17,5 @@ categories = ["algorithms"]
 
 [dependencies]
 anyhow = "1"
+insta = "1"
 petgraph = "0.6"

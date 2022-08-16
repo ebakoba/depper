@@ -1,0 +1,20 @@
+---
+source: src/lib.rs
+expression: dependencies.generate_tranches().unwrap()
+---
+[
+    [
+        "y",
+    ],
+    [
+        "e",
+    ],
+    [
+        "d",
+    ],
+    [
+        "b",
+        "c",
+        "a",
+    ],
+]

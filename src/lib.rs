@@ -22,21 +22,19 @@
 //!   ```
 //!   use depper::Dependencies;
 //!
-//!   fn main() {
-//!     let mut dependencies_builder = Dependencies::builder()
-//!       .add_element("b", &["d"])
-//!       .add_element("c", &["d"])
-//!       .add_element("a", &["d", "e", "y"])
-//!       .add_element("d", &["e"])
-//!       .add_element("e", &[])
-//!       .add_element("y", &[]);
+//!   let mut dependencies_builder = Dependencies::builder()
+//!     .add_element("b", &["d"])
+//!     .add_element("c", &["d"])
+//!     .add_element("a", &["d", "e", "y"])
+//!     .add_element("d", &["e"])
+//!     .add_element("e", &[])
+//!     .add_element("y", &[]);
 //!     
-//!     // Calling the `.build()` function validates the list of dependencies.
-//!     let dependencies = dependencies_builder.build().unwrap();
+//!   // Calling the `.build()` function validates the list of dependencies.
+//!   let dependencies = dependencies_builder.build().unwrap();
 //!    
-//!    // The `.tranches()` function returns a list of tranches.
-//!     println!("{:?}", dependencies.generate_tranches().unwrap());
-//!   }
+//!   // The `.tranches()` function returns a list of tranches.
+//!   println!("{:?}", dependencies.generate_tranches().unwrap());
 //!   ```
 //!
 //!   ```console
@@ -62,10 +60,15 @@ pub struct DependenciesBuilder<'a> {
 
 impl<'a> DependenciesBuilder<'a> {
     pub fn add_element(mut self, name: &'a str, dependecies: &'a [&str]) -> Self {
-        self.all_elements.push(name);
         self.all_dependencies.extend(dependecies);
-        let node = self.graph.add_node(name);
-        self.dependency_map.insert(name, (node, dependecies));
+        
+        if let Some((graph_node, _)) = self.dependency_map.get(name)  {
+            self.dependency_map.insert(name, (graph_node.to_owned(), dependecies));
+        } else {
+            self.all_elements.push(name);
+            let node = self.graph.add_node(name);
+            self.dependency_map.insert(name, (node, dependecies));
+        }
         self
     }
 
@@ -218,6 +221,22 @@ mod tests {
 
         let dependencies = dependencies_builder.build().unwrap();
 
-        assert!(dependencies.generate_tranches().is_ok());
+        insta::assert_debug_snapshot!(dependencies.generate_tranches().unwrap());
+    }
+
+    #[test]
+    fn can_update_dependecies_later() {
+        let mut dependencies_builder = Dependencies::builder()
+            .add_element("b", &["d"])
+            .add_element("c", &["d"])
+            .add_element("a", &["d", "e", "y"])
+            .add_element("d", &["e"])
+            .add_element("e", &[])
+            .add_element("y", &[])
+            .add_element("e", &["y"]);
+
+        let dependencies = dependencies_builder.build().unwrap();
+
+        insta::assert_debug_snapshot!(dependencies.generate_tranches().unwrap());
     }
 }
