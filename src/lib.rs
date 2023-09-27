@@ -47,7 +47,7 @@ use petgraph::{
     algo::is_cyclic_directed,
     graph::{DiGraph, NodeIndex},
     visit::{IntoNodeReferences, NodeIndexable},
-    Direction,
+    Direction, Graph,
 };
 use std::collections::{HashMap, HashSet};
 
@@ -61,9 +61,10 @@ pub struct DependenciesBuilder {
 impl DependenciesBuilder {
     pub fn add_element(mut self, name: String, dependecies: Vec<String>) -> Self {
         self.all_dependencies.extend(dependecies.clone());
-        
-        if let Some((graph_node, _)) = self.dependency_map.get(&name)  {
-            self.dependency_map.insert(name, (graph_node.to_owned(), dependecies));
+
+        if let Some((graph_node, _)) = self.dependency_map.get(&name) {
+            self.dependency_map
+                .insert(name, (graph_node.to_owned(), dependecies));
         } else {
             self.all_elements.push(name.clone());
             let node = self.graph.add_node(name.clone());
@@ -122,6 +123,15 @@ pub struct Dependencies {
 }
 
 impl Dependencies {
+    fn find_node_by_name(graph: Graph<String, ()>, name: &str) -> Option<NodeIndex> {
+        for (node_index, node_name) in graph.node_references() {
+            if node_name == name {
+                return Some(node_index);
+            }
+        }
+        None
+    }
+
     pub fn generate_tranches(&self) -> Result<Vec<Vec<String>>> {
         let mut tranches: Vec<Vec<String>> = vec![];
         let mut traverse_graph = self.graph.clone();
@@ -137,9 +147,12 @@ impl Dependencies {
                     node_to_remove.push((node_index, node_name.to_string()));
                 }
             }
-            for (node_index, node_name) in node_to_remove {
-                let adjusted_index = traverse_graph.to_index(node_index) - new_layer.len();
-                traverse_graph.remove_node(traverse_graph.from_index(adjusted_index));
+            for (_, node_name) in node_to_remove {
+                let node_index =
+                    Dependencies::find_node_by_name(traverse_graph.clone(), &node_name)
+                        .ok_or(anyhow::anyhow!("Node not found"))?;
+                traverse_graph
+                    .remove_node(traverse_graph.from_index(traverse_graph.to_index(node_index)));
 
                 new_layer.push(node_name.to_string())
             }
@@ -214,7 +227,10 @@ mod tests {
         let mut dependencies_builder = Dependencies::builder()
             .add_element("b".to_string(), vec!["d".to_string()])
             .add_element("c".to_string(), vec!["d".to_string()])
-            .add_element("a".to_string(), vec!["d".to_string(), "e".to_string(), "y".to_string()])
+            .add_element(
+                "a".to_string(),
+                vec!["d".to_string(), "e".to_string(), "y".to_string()],
+            )
             .add_element("d".to_string(), vec!["e".to_string()])
             .add_element("e".to_string(), vec![])
             .add_element("y".to_string(), vec![]);
@@ -229,7 +245,10 @@ mod tests {
         let mut dependencies_builder = Dependencies::builder()
             .add_element("b".to_string(), vec!["d".to_string()])
             .add_element("c".to_string(), vec!["d".to_string()])
-            .add_element("a".to_string(), vec!["d".to_string(), "e".to_string(), "y".to_string()])
+            .add_element(
+                "a".to_string(),
+                vec!["d".to_string(), "e".to_string(), "y".to_string()],
+            )
             .add_element("d".to_string(), vec!["e".to_string()])
             .add_element("e".to_string(), vec![])
             .add_element("y".to_string(), vec![])
@@ -238,5 +257,39 @@ mod tests {
         let dependencies = dependencies_builder.build().unwrap();
 
         insta::assert_debug_snapshot!(dependencies.generate_tranches().unwrap());
+    }
+
+    #[test]
+    fn dependecies_are_order_insensitive() {
+        let mut ordered_dependencies_builder = Dependencies::builder()
+            .add_element("machine1".to_string(), vec!["network1".to_string()])
+            .add_element(
+                "machine2".to_string(),
+                vec!["network1".to_string(), "network2".to_string()],
+            )
+            .add_element("machine3".to_string(), vec!["network2".to_string()])
+            .add_element("network1".to_string(), vec![])
+            .add_element("network2".to_string(), vec![]);
+
+        let ordered_dependecies = ordered_dependencies_builder.build().unwrap();
+
+        let mut dependencies_builder = Dependencies::builder()
+            .add_element("machine1".to_string(), vec!["network1".to_string()])
+            .add_element("network1".to_string(), vec![])
+            .add_element("network2".to_string(), vec![])
+            .add_element(
+                "machine2".to_string(),
+                vec!["network1".to_string(), "network2".to_string()],
+            )
+            .add_element("machine3".to_string(), vec!["network2".to_string()]);
+
+        let dependencies = dependencies_builder.build().unwrap();
+
+        println!("{:?}", ordered_dependecies.generate_tranches());
+        println!("{:?}", dependencies.generate_tranches());
+        assert_eq!(
+            ordered_dependecies.generate_tranches().unwrap().len(),
+            dependencies.generate_tranches().unwrap().len()
+        );
     }
 }
